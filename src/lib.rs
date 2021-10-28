@@ -101,7 +101,6 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
             // if source1.buf_can_be_discarded() { // does not compile
             if *source.buf_read_by == *source.num_readers {
                 match Pin::new(&mut source.input).poll_next(cx) {
-                // match <Pin<Box<&mut dyn Stream<Item = T> + Unpin>>>::poll_next(input, cx) {
                     Poll::Pending => {
                         *source.buf = None; // needed?
                         Poll::Pending
