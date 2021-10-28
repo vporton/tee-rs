@@ -120,6 +120,11 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.source.input.size_hint() // TODO: +1?
+        let result = self.source.input.size_hint();
+        if self.has_delivered_buf || self.source.buf.is_none() {
+            result
+        } else {
+            (result.0 + 1, result.1.map(|s| s + 1))
+        }
     }
 }
