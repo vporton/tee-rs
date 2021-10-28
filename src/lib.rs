@@ -40,11 +40,11 @@ impl<'a, T: Copy> Tee<T> {
     pub fn buf_can_be_discarded(&self) -> bool {
         self.buf_read_by == self.num_readers
     }
-    fn fetch_buf(&mut self) -> Option<T> {
-        assert!(self.buf_read_by < self.num_readers);
-        self.buf_read_by += 1;
-        self.buf
-    }
+    // fn fetch_buf(&mut self) -> Option<T> {
+    //     assert!(self.buf_read_by < self.num_readers);
+    //     self.buf_read_by += 1;
+    //     self.buf
+    // }
     fn take_buf(&mut self) -> Option<T> {
         assert!(self.buf_can_be_discarded());
         let result = self.buf;
@@ -67,7 +67,7 @@ struct TeeOutput<'a, T> {
 #[pinned_drop]
 impl<'a, T> PinnedDrop for TeeOutput<'a, T> {
     fn drop(self: Pin<&mut Self>) {
-        let this = self.project();
+        let mut this = self.project();
         this.source.num_readers -= 1;
         if *this.has_delivered_buf {
             this.source.buf_read_by -= 1;
