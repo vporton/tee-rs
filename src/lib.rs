@@ -12,7 +12,7 @@ struct Tee<T> {
     num_readers: usize,
     buf_read_by: usize,
     #[pin]
-    input: Pin<Box<dyn Stream<Item = T> + Unpin>>, // Can Pin be eliminated here?
+    input: Box<dyn Stream<Item = T> + Unpin>, // Can Pin be eliminated here?
 }
 
 impl<T> Tee<T> {
@@ -21,7 +21,7 @@ impl<T> Tee<T> {
             buf: None,
             num_readers: 0,
             buf_read_by: 0,
-            input: Pin::new(input),
+            input,
         }
     }
 }
