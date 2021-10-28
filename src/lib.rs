@@ -7,7 +7,7 @@ use futures_core::Stream;
 use pin_project::{pin_project, pinned_drop};
 
 #[pin_project]
-struct Tee<T> {
+pub struct Tee<T> {
     buf: Option<T>,
     num_readers: usize,
     buf_read_by: usize,
@@ -24,6 +24,12 @@ impl<T> Tee<T> {
             input,
         }
     }
+    pub fn num_readers(&self) -> usize {
+        self.num_readers
+    }
+    pub fn input_stream(&self) -> &dyn Stream<Item = T> {
+        &*self.input
+    }
 }
 
 impl<'a, T: Copy> Tee<T> {
@@ -33,7 +39,7 @@ impl<'a, T: Copy> Tee<T> {
         }
         TeeOutput::new(self)
     }
-    pub fn buf_can_be_discarded(&self) -> bool {
+    fn buf_can_be_discarded(&self) -> bool {
         self.buf_read_by == self.num_readers
     }
     fn take_buf(&mut self) -> Option<T> {
@@ -46,7 +52,7 @@ impl<'a, T: Copy> Tee<T> {
 }
 
 #[pin_project(PinnedDrop)]
-struct TeeOutput<'a, T> {
+pub struct TeeOutput<'a, T> {
     #[pin]
     source: &'a mut Tee<T>,
     has_delivered_buf: bool,
@@ -65,11 +71,14 @@ impl<'a, T> PinnedDrop for TeeOutput<'a, T> {
 }
 
 impl<'a, T> TeeOutput<'a, T> {
-    fn new<'b>(source: &mut Tee<T>) -> TeeOutput<T> {
+    fn new<'b>(source: &mut Tee<T>) -> TeeOutput<T> { // private!
         TeeOutput {
             source,
             has_delivered_buf: false,
         }
+    }
+    pub fn source(&mut self) -> &mut Tee<T> {
+        self.source
     }
 }
 
