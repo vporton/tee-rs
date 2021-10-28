@@ -1,10 +1,10 @@
 extern crate futures_core;
 extern crate pin_project;
 
-use std::{ops::{Deref, DerefMut}, pin::Pin, task::{Context, Poll}};
+use std::{pin::Pin, task::{Context, Poll}};
 
 use futures_core::Stream;
-use pin_project::pin_project;
+use pin_project::{pin_project, pinned_drop};
 
 // TODO: ?Sized
 
@@ -54,28 +54,29 @@ impl<'a, T: Copy> Tee<T> {
     }
 }
 
+#[pin_project(PinnedDrop)]
 struct TeeOutput<'a, T> {
+    #[pin]
     source: &'a mut Tee<T>, // TODO: Can we get rid of this Pin?
     has_delivered_buf: bool,
 }
 
-impl<'a, T> Unpin for TeeOutput<'a, T> { }
+// impl<'a, T> Unpin for TeeOutput<'a, T> { }
 
-impl<'a, T> Drop for TeeOutput<'a, T> {
-    fn drop(&mut self) {
-        self.source.num_readers -= 1;
-        if self.has_delivered_buf {
-            self.source.buf_read_by -= 1;
+
+#[pinned_drop]
+impl<'a, T> PinnedDrop for TeeOutput<'a, T> {
+    fn drop(self: Pin<&mut Self>) {
+        let this = self.project();
+        this.source.num_readers -= 1;
+        if *this.has_delivered_buf {
+            this.source.buf_read_by -= 1;
         }
-        assert!(self.source.buf_read_by <= self.source.num_readers);
+        assert!(this.source.buf_read_by <= this.source.num_readers);
     }
 }
 
 impl<'a, T> TeeOutput<'a, T> {
-    fn pin_get_source(self: Pin<&mut Self>) -> Pin<&mut Tee<T>> {
-        Pin::new(self.source))
-        // unsafe { self.map_unchecked_mut(|s| s.source) }
-    }
     fn new<'b>(source: &mut Tee<T>) -> TeeOutput<T> {
         TeeOutput {
             source,
@@ -91,24 +92,27 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         self: Pin<&mut Self>, 
         cx: &mut Context<'_>
     ) -> Poll<Option<Self::Item>> {
-        let mut this = &*self;
-        let mut source = self.pin_get_source();
-        let mut input = source.input;
+        let this = self.project();
         // let mut input = Pin::new(self.source).project().input;
         // let mut input = Box::pin(self.source.input);
-        if this.has_delivered_buf {
-            if source.buf_can_be_discarded() {
-                match Pin::new(&mut input).poll_next(cx) {
+        if *this.has_delivered_buf {
+            let source0 = this.source; //pin_get_source();
+            let source1 = unsafe { source0.map_unchecked_mut(|s| *s) }; // FIXME: Correct?
+            let mut source = source1.project();
+
+            // if source1.buf_can_be_discarded() { // does not compile
+            if *source.buf_read_by == *source.num_readers {
+                match Pin::new(&mut source.input).poll_next(cx) {
                 // match <Pin<Box<&mut dyn Stream<Item = T> + Unpin>>>::poll_next(input, cx) {
                     Poll::Pending => {
-                        source.buf = None; // needed?
+                        *source.buf = None; // needed?
                         Poll::Pending
                     },
                     Poll::Ready(val) => {
-                        source.buf = val;
-                        assert!(source.buf_can_be_discarded());
-                        source.buf_read_by = 1;
-                        this.has_delivered_buf = true;
+                        *source.buf = val;
+                        // assert!(source1.buf_can_be_discarded());
+                        *source.buf_read_by = 1;
+                        *this.has_delivered_buf = true;
                         Poll::Ready(val)
                     },
                 }
@@ -116,7 +120,10 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
                 Poll::Pending
             }
         } else {
-            Poll::Ready(source.take_buf())
+            // let this = self.project();
+            let source0 = this.source; //pin_get_source();
+            let mut source1 = unsafe { source0.map_unchecked_mut(|s| *s) }; // FIXME: Correct?
+            Poll::Ready(source1.take_buf())
         }
     }
 
