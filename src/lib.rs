@@ -97,7 +97,7 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         let mut source = unsafe { source0.map_unchecked_mut(|s| *s) }; // Correct?
         if *this.has_delivered_buf {
             // if source1.buf_can_be_discarded() { // does not compile
-            if source.buf_read_by == source.num_readers {
+            if source.buf_read_by as usize == source.num_readers as usize { // I added `usize` to be sure  compare not pointers.
                 match Pin::new(&mut source.input).poll_next(cx) {
                     Poll::Pending => {
                         source.buf = None; // needed?
