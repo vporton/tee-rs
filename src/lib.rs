@@ -94,10 +94,8 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
     ) -> Poll<Option<Self::Item>> {
         let this = self.project();
         let source0 = this.source; //pin_get_source();
-        let mut source1 = unsafe { source0.map_unchecked_mut(|s| *s) }; // Correct?
+        let mut source = unsafe { source0.map_unchecked_mut(|s| *s) }; // Correct?
         if *this.has_delivered_buf {
-            let mut source = source1; //.project();
-
             // if source1.buf_can_be_discarded() { // does not compile
             if source.buf_read_by == source.num_readers {
                 match Pin::new(&mut source.input).poll_next(cx) {
@@ -117,7 +115,7 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
                 Poll::Pending
             }
         } else {
-            Poll::Ready(source1.take_buf())
+            Poll::Ready(source.take_buf())
         }
     }
 
