@@ -1,7 +1,7 @@
 extern crate futures_core;
 extern crate pin_project;
 
-use std::{pin::Pin, task::{Context, Poll}};
+use std::{ops::{Deref, DerefMut}, pin::Pin, task::{Context, Poll}};
 
 use futures_core::Stream;
 use pin_project::pin_project;
@@ -17,6 +17,8 @@ struct Tee<T> {
     input: Pin<Box<dyn Stream<Item = T> + Unpin>>, // Can Pin be eliminated here?
 }
 
+// impl<T> Unpin for Tee<T> {}
+
 impl<T> Tee<T> {
     pub fn new(input: Box<dyn Stream<Item = T> + Unpin>) -> Self {
         Self {
@@ -29,7 +31,7 @@ impl<T> Tee<T> {
 }
 
 impl<'a, T: Copy> Tee<T> {
-    pub fn create_output(&'a mut self, n: usize) -> TeeOutput<'a, T> {
+    pub fn create_output(&'a mut self) -> TeeOutput<'a, T> {
         if !self.buf_can_be_discarded() {
             self.buf_read_by += 1; // FIXME
         }
@@ -71,7 +73,8 @@ impl<'a, T> Drop for TeeOutput<'a, T> {
 
 impl<'a, T> TeeOutput<'a, T> {
     fn pin_get_source(self: Pin<&mut Self>) -> Pin<&mut Tee<T>> {
-        unsafe { self.map_unchecked_mut(|s| s.source) }
+        Pin::new(self.source))
+        // unsafe { self.map_unchecked_mut(|s| s.source) }
     }
     fn new<'b>(source: &mut Tee<T>) -> TeeOutput<T> {
         TeeOutput {
@@ -88,12 +91,13 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         self: Pin<&mut Self>, 
         cx: &mut Context<'_>
     ) -> Poll<Option<Self::Item>> {
+        let mut this = &*self;
         let mut source = self.pin_get_source();
-        let mut input = &mut source.project().input;
+        let mut input = source.input;
         // let mut input = Pin::new(self.source).project().input;
         // let mut input = Box::pin(self.source.input);
-        if self.has_delivered_buf {
-            if self.source.buf_can_be_discarded() {
+        if this.has_delivered_buf {
+            if source.buf_can_be_discarded() {
                 match Pin::new(&mut input).poll_next(cx) {
                 // match <Pin<Box<&mut dyn Stream<Item = T> + Unpin>>>::poll_next(input, cx) {
                     Poll::Pending => {
@@ -102,9 +106,9 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
                     },
                     Poll::Ready(val) => {
                         source.buf = val;
-                        assert!(self.source.buf_can_be_discarded());
+                        assert!(source.buf_can_be_discarded());
                         source.buf_read_by = 1;
-                        self.has_delivered_buf = true;
+                        this.has_delivered_buf = true;
                         Poll::Ready(val)
                     },
                 }
@@ -112,7 +116,7 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
                 Poll::Pending
             }
         } else {
-            Poll::Ready(self.source.take_buf())
+            Poll::Ready(source.take_buf())
         }
     }
 
