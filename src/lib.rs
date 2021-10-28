@@ -93,11 +93,9 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         cx: &mut Context<'_>
     ) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        // let mut input = Pin::new(self.source).project().input;
-        // let mut input = Box::pin(self.source.input);
+        let source0 = this.source; //pin_get_source();
+        let mut source1 = unsafe { source0.map_unchecked_mut(|s| *s) }; // FIXME: Correct?
         if *this.has_delivered_buf {
-            let source0 = this.source; //pin_get_source();
-            let source1 = unsafe { source0.map_unchecked_mut(|s| *s) }; // FIXME: Correct?
             let mut source = source1.project();
 
             // if source1.buf_can_be_discarded() { // does not compile
@@ -120,9 +118,6 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
                 Poll::Pending
             }
         } else {
-            // let this = self.project();
-            let source0 = this.source; //pin_get_source();
-            let mut source1 = unsafe { source0.map_unchecked_mut(|s| *s) }; // FIXME: Correct?
             Poll::Ready(source1.take_buf())
         }
     }
