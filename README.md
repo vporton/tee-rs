@@ -1,10 +1,11 @@
 ## tee-rs
 
-Duplicate output of a stream into several other streams. Am efficient implementation with no big buffer.
+Duplicate output of a stream into several other streams. An efficient implementation with no big buffer.
 
-**Not yet ready**
+**Not yet tested**
 
 TODO:
 
+- testing
 - buffering
 - documentation
