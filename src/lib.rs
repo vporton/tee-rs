@@ -35,7 +35,7 @@ impl<T> Tee<T> {
 impl<'a, T: Copy> Tee<T> {
     pub fn create_output(&'a mut self) -> TeeOutput<'a, T> {
         if !self.buf_can_be_discarded() {
-            self.buf_read_by += 1; // FIXME
+            self.buf_read_by += 1;
         }
         TeeOutput::new(self)
     }
@@ -43,10 +43,11 @@ impl<'a, T: Copy> Tee<T> {
         self.buf_read_by == self.num_readers
     }
     fn take_buf(&mut self) -> Option<T> {
+        assert!(self.buf_read_by + 1 == self.num_readers);
+        self.buf_read_by = self.num_readers;
         assert!(self.buf_can_be_discarded());
         let result = self.buf;
         self.buf = None;
-        self.buf_read_by = 0; // FIXME: or `= self.num_readers`?
         result
     }
 }
