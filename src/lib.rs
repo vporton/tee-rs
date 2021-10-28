@@ -6,8 +6,6 @@ use std::{pin::Pin, task::{Context, Poll}};
 use futures_core::Stream;
 use pin_project::{pin_project, pinned_drop};
 
-// TODO: ?Sized
-
 #[pin_project]
 struct Tee<T> {
     buf: Option<T>,
@@ -16,8 +14,6 @@ struct Tee<T> {
     #[pin]
     input: Pin<Box<dyn Stream<Item = T> + Unpin>>, // Can Pin be eliminated here?
 }
-
-// impl<T> Unpin for Tee<T> {}
 
 impl<T> Tee<T> {
     pub fn new(input: Box<dyn Stream<Item = T> + Unpin>) -> Self {
@@ -60,9 +56,6 @@ struct TeeOutput<'a, T> {
     source: &'a mut Tee<T>, // TODO: Can we get rid of this Pin?
     has_delivered_buf: bool,
 }
-
-// impl<'a, T> Unpin for TeeOutput<'a, T> { }
-
 
 #[pinned_drop]
 impl<'a, T> PinnedDrop for TeeOutput<'a, T> {
