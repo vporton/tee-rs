@@ -2,7 +2,7 @@
 name = "tee-rs"
 version = "0.1.0"
 authors = ["Victor Porton <porton.victor@gmail.com>"]
-description = "Duplicate ouptut of a stream into several other streams."
+description = "Duplicate output of a stream into several other streams. Am efficient implementation with no big buffer."
 license = "LGPL-2.1-or-later"
 keywords = ["async-std", "async", "asynchronous", "stream", "async stream", "asynchronous stream", "tee", "fork", "duplicate", "duplicate content"]
 categories = ["asynchronous", "caching", "concurrency", "rust-patterns"]
