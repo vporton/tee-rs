@@ -36,11 +36,6 @@ impl<'a, T: Copy> Tee<T> {
     pub fn buf_can_be_discarded(&self) -> bool {
         self.buf_read_by == self.num_readers
     }
-    // fn fetch_buf(&mut self) -> Option<T> {
-    //     assert!(self.buf_read_by < self.num_readers);
-    //     self.buf_read_by += 1;
-    //     self.buf
-    // }
     fn take_buf(&mut self) -> Option<T> {
         assert!(self.buf_can_be_discarded());
         let result = self.buf;
