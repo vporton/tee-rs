@@ -48,7 +48,7 @@ impl<'a, T: Copy> Tee<T> {
 #[pin_project(PinnedDrop)]
 struct TeeOutput<'a, T> {
     #[pin]
-    source: &'a mut Tee<T>, // TODO: Can we get rid of this Pin?
+    source: &'a mut Tee<T>,
     has_delivered_buf: bool,
 }
 
