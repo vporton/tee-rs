@@ -93,7 +93,7 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         cx: &mut Context<'_>
     ) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        let source0 = this.source; //pin_get_source();
+        let source0 = this.source;
         let mut source = unsafe { source0.map_unchecked_mut(|s| *s) }; // Correct?
         if *this.has_delivered_buf {
             // if source1.buf_can_be_discarded() { // does not compile
