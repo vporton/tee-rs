@@ -8,28 +8,28 @@ use pin_project::pin_project;
 
 // TODO: ?Sized
 
-// #[pin_project]
-struct Tee<'a, T> {
+#[pin_project]
+struct Tee<T> {
     buf: Option<T>,
     num_readers: usize,
     buf_read_by: usize,
-    // #[pin]
-    input: Pin<Box<&'a mut dyn Stream<Item = T>>>, // Can Pin be eliminated here?
+    #[pin]
+    input: Pin<Box<dyn Stream<Item = T> + Unpin>>, // Can Pin be eliminated here?
 }
 
-impl<'a, T> Tee<'a, T> {
-    pub fn new(input: &'a mut dyn Stream<Item = T>) -> Self {
+impl<T> Tee<T> {
+    pub fn new(input: Box<dyn Stream<Item = T> + Unpin>) -> Self {
         Self {
             buf: None,
             num_readers: 0,
             buf_read_by: 0,
-            input: Box::pin(input),
+            input: Pin::new(input),
         }
     }
 }
 
-impl<'a, T: Copy> Tee<'a, T> {
-    pub fn create_output(&'a mut self, n: usize) -> TeeOutput<T> {
+impl<'a, T: Copy> Tee<T> {
+    pub fn create_output(&'a mut self, n: usize) -> TeeOutput<'a, T> {
         if !self.buf_can_be_discarded() {
             self.buf_read_by += 1; // FIXME
         }
@@ -53,7 +53,7 @@ impl<'a, T: Copy> Tee<'a, T> {
 }
 
 struct TeeOutput<'a, T> {
-    source: &'a mut Tee<'a, T>, // TODO: Can we get rid of this Pin?
+    source: &'a mut Tee<T>, // TODO: Can we get rid of this Pin?
     has_delivered_buf: bool,
 }
 
@@ -70,10 +70,10 @@ impl<'a, T> Drop for TeeOutput<'a, T> {
 }
 
 impl<'a, T> TeeOutput<'a, T> {
-    fn pin_get_source(self: Pin<&'a mut Self>) -> Pin<&'a mut Tee<'a, T>> {
+    fn pin_get_source(self: Pin<&mut Self>) -> Pin<&mut Tee<T>> {
         unsafe { self.map_unchecked_mut(|s| s.source) }
     }
-    fn new<'b>(source: &'b mut Tee<'b, T>) -> TeeOutput<'b, T> {
+    fn new<'b>(source: &mut Tee<T>) -> TeeOutput<T> {
         TeeOutput {
             source,
             has_delivered_buf: false,
@@ -88,21 +88,22 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         self: Pin<&mut Self>, 
         cx: &mut Context<'_>
     ) -> Poll<Option<Self::Item>> {
-        let mut input = self.pin_get_source().input;
+        let mut source = self.pin_get_source();
+        let mut input = &mut source.project().input;
         // let mut input = Pin::new(self.source).project().input;
         // let mut input = Box::pin(self.source.input);
         if self.has_delivered_buf {
             if self.source.buf_can_be_discarded() {
-                // match input.poll_next(cx) {
-                match <Pin<Box<&mut dyn Stream<Item = T>>>>::poll_next(input, cx) {
+                match Pin::new(&mut input).poll_next(cx) {
+                // match <Pin<Box<&mut dyn Stream<Item = T> + Unpin>>>::poll_next(input, cx) {
                     Poll::Pending => {
-                        self.source.buf = None; // needed?
+                        source.buf = None; // needed?
                         Poll::Pending
                     },
                     Poll::Ready(val) => {
-                        self.source.buf = val;
+                        source.buf = val;
                         assert!(self.source.buf_can_be_discarded());
-                        self.source.buf_read_by = 1;
+                        source.buf_read_by = 1;
                         self.has_delivered_buf = true;
                         Poll::Ready(val)
                     },
