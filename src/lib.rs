@@ -35,6 +35,7 @@ impl<T> Tee<T>
 
 impl<'a, T: Copy> Tee<T> {
     pub fn create_output(&'a mut self) -> TeeOutput<'a, T> {
+        self.num_readers += 1;
         if !self.buf_can_be_discarded() {
             self.buf_read_by += 1;
         }
@@ -44,7 +45,7 @@ impl<'a, T: Copy> Tee<T> {
         self.buf_read_by == self.num_readers
     }
     fn take_buf(&mut self) -> Option<T> {
-        assert!(self.buf_read_by + 1 == self.num_readers);
+        assert_eq!(self.buf_read_by + 1, self.num_readers);
         self.buf_read_by = self.num_readers;
         assert!(self.buf_can_be_discarded());
         let result = self.buf;
@@ -53,24 +54,25 @@ impl<'a, T: Copy> Tee<T> {
     }
 }
 
-#[pin_project(PinnedDrop)]
+#[pin_project/*(PinnedDrop)*/]
 pub struct TeeOutput<'a, T> {
     #[pin]
     source: &'a mut Tee<T>,
     has_delivered_buf: bool,
 }
 
-#[pinned_drop]
-impl<'a, T> PinnedDrop for TeeOutput<'a, T> {
-    fn drop(self: Pin<&mut Self>) {
-        let mut this = self.project();
-        this.source.num_readers -= 1;
-        if *this.has_delivered_buf {
-            this.source.buf_read_by -= 1;
-        }
-        assert!(this.source.buf_read_by <= this.source.num_readers);
-    }
-}
+// FIXME
+// #[pinned_drop]
+// impl<'a, T> PinnedDrop for TeeOutput<'a, T> {
+//     fn drop(self: Pin<&mut Self>) {
+//         let mut this = self.project();
+//         this.source.num_readers -= 1;
+//         if *this.has_delivered_buf {
+//             this.source.buf_read_by -= 1;
+//         }
+//         assert!(this.source.buf_read_by <= this.source.num_readers);
+//     }
+// }
 
 impl<'a, T> TeeOutput<'a, T> {
     fn new<'b>(source: &mut Tee<T>) -> TeeOutput<T> { // private!
