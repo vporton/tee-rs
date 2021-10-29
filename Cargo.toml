@@ -1,4 +1,5 @@
 [package]
+edition = "2021"
 name = "tee-rs"
 version = "0.1.0"
 authors = ["Victor Porton <porton.victor@gmail.com>"]
@@ -14,5 +15,6 @@ test = true
 
 [dependencies]
 # async-std = "1.10.0"
+futures = "0.3.17"
 futures-core = "0.3.17"
 pin-project = "1"

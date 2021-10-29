@@ -1,9 +1,9 @@
-extern crate futures_core;
+extern crate futures;
 extern crate pin_project;
 
 use std::{pin::Pin, task::{Context, Poll}};
 
-use futures_core::Stream;
+use futures::Stream;
 use pin_project::{pin_project, pinned_drop};
 
 #[pin_project]
@@ -15,7 +15,8 @@ pub struct Tee<T> {
     input: Box<dyn Stream<Item = T> + Unpin>, // Can Pin be eliminated here?
 }
 
-impl<T> Tee<T> {
+impl<T> Tee<T>
+{
     pub fn new(input: Box<dyn Stream<Item = T> + Unpin>) -> Self {
         Self {
             buf: None,
@@ -124,5 +125,29 @@ impl<'a, T: Copy> Stream for TeeOutput<'a, T> {
         } else {
             (result.0 + 1, result.1.map(|s| s + 1))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::executor::block_on;
+    use futures::stream;
+    use futures::stream::StreamExt;
+
+    static INPUT: [u8; 5] = [1, 2, 3, 4, 5];
+
+    fn input_stream() -> Box<dyn Stream<Item = u8> + Unpin> {
+        Box::new(stream::iter(INPUT))
+    }
+
+    #[test]
+    fn test_one_input() {
+        async fn f() {
+            let mut tee = Tee::new(input_stream());
+            let stream1 = tee.create_output();
+            assert!(stream1.collect::<Vec<u8>>().await == INPUT);
+        }
+        block_on(f());
     }
 }
